@@ -2024,7 +2024,34 @@ which stage to diff against in the case of unmerged files."
                                   (list (stgit-file->cr-from patched-file)
                                         (stgit-file->cr-to patched-file))
                                 (list (stgit-file->file patched-file))))))
-           (apply 'stgit-run-git "diff" args)))
+           (apply 'stgit-run-git "diff" args)
+           (with-current-buffer standard-output
+             (goto-char (point-min))
+             (while (re-search-forward
+                     "^\\(\\+\\+\\+\\|---\\|diff --git\\)" nil t)
+               (beginning-of-line)
+               (cond ((looking-at "diff --git \\(a/\\).* \\(b/\\).*$")
+                      (case patch-id
+                        (:index
+                         (replace-match "" nil nil nil 1)
+                         (replace-match ".git/index@GITINDEX@/" nil nil nil 2))
+                        (:work
+                         (replace-match ".git/index@GITINDEX@/" nil nil nil 1)
+                         (replace-match "" nil nil nil 2))))
+                     ((looking-at "--- \\(a/\\)")
+                      (case patch-id
+                        (:index
+                         (replace-match "A/" nil nil nil 1))
+                        (:work
+                         (replace-match ".git/index@GITINDEX@/"
+                                        nil nil nil 1))))
+                     ((looking-at "\\+\\+\\+ \\(b/\\)")
+                      (case patch-id
+                        (:index
+                         (replace-match ".git/index@GITINDEX@/" nil nil nil 1))
+                        (:work
+                         (replace-match "" nil nil nil 1)))))
+               (forward-line 1)))))
         ('patch
          (let* ((patch-id (stgit-id patch-name)))
            (if (or (eq patch-id :index) (eq patch-id :work))
