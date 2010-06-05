@@ -913,7 +913,10 @@ at point."
 (defun stgit-find-file (&optional other-window)
   (let* ((file (or (stgit-patched-file-at-point)
                    (error "No file at point")))
-         (filename (expand-file-name (stgit-file->file file))))
+         (filename (expand-file-name
+                    (if (eq (stgit-patch-name-at-point) :index)
+                        (concat ".git/index@GITINDEX@/" (stgit-file->file file))
+                      (stgit-file->file file)))))
     (unless (file-exists-p filename)
       (error "File does not exist"))
     (funcall (if other-window 'find-file-other-window 'find-file)
