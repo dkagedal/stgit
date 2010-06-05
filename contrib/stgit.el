@@ -2266,6 +2266,27 @@ This works just like running `stgit-new' followed by `stgit-refresh'."
   (stgit-assert-mode)
   (stgit-new add-sign t))
 
+(defun stgit-git-commit ()
+  ;; TODO: signed-off
+  ;; TODO: .git/MERGE_MSG
+  (interactive)
+  (stgit-assert-mode)
+  (let ((edit-buf (get-buffer-create "*StGit edit*"))
+        (dir default-directory))
+    (log-edit 'stgit-confirm-git-commit t nil edit-buf)
+    (setq default-directory dir)))
+
+(defun stgit-confirm-git-commit ()
+  ;; TODO: merges
+  ;; TODO: use -a when empty index?
+  (interactive)
+  (let ((file (make-temp-file "stgit-edit-")))
+    (write-region (point-min) (point-max) file)
+    (stgit-capture-output "*git output*"
+      (stgit-run-git "commit" "-F" file))
+    (with-current-buffer log-edit-parent-buffer
+      (stgit-reload))))
+
 (defun stgit-create-patch-name (description)
   "Create a patch name from a long description"
   (let ((patch ""))
