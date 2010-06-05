@@ -109,21 +109,21 @@ directory = DirectoryGotoToplevel(log = False)
 def __is_current_branch(branch_name):
     return crt_series.get_name() == branch_name
 
-def __print_branch(branch_name, length):
+def __print_branch(branch_name, description, version, length):
     initialized = ' '
     current = ' '
     protected = ' '
 
-    branch = stack.Series(branch_name)
+    #branch = stack.Series(branch_name)
 
-    if branch.is_initialised():
+    if version != None:
         initialized = 's'
     if __is_current_branch(branch_name):
         current = '>'
-    if branch.get_protected():
-        protected = 'p'
+    #if branch.get_protected():
+    #    protected = 'p'
     out.stdout(current + ' ' + initialized + protected + '\t'
-               + branch_name.ljust(length) + '  | ' + branch.get_description())
+               + branch_name.ljust(length) + '  | ' + (description or ''))
 
 def __delete_branch(doomed_name, force = False):
     doomed = stack.Series(doomed_name)
@@ -136,6 +136,23 @@ def __delete_branch(doomed_name, force = False):
     out.start('Deleting branch "%s"' % doomed_name)
     doomed.delete(force)
     out.done()
+
+class FormatException(StgException):
+    pass
+
+def __get_all_branch_config(key):
+    key = re.escape(key)
+    lines = git.GRun('config', '--get-regexp',
+                     r'branch\..*\.'+key).returns([0,1]).output_lines()
+    val_re = re.compile(r'branch\.(.*)\.%s (.*)' % key)
+    result = {}
+    for line in lines:
+        m = val_re.match(line)
+        if not m:
+            raise FormatException("unknown output from git config")
+        branch, data = m.groups()
+        result[branch] = data
+    return result
 
 def func(parser, options, args):
 
@@ -242,11 +259,15 @@ def func(parser, options, args):
             if m and m.group(1) in branches:
                 branches.remove(br)
 
+        descriptions = __get_all_branch_config('description')
+        versions = __get_all_branch_config('stgit.stackformatversion')
+
         if branches:
             out.info('Available branches:')
-            max_len = max([len(i) for i in branches])
-            for i in sorted(branches):
-                __print_branch(i, max_len)
+            max_len = max(len(i) for i in branches)
+            for branch in sorted(branches):
+                __print_branch(branch, descriptions.get(branch),
+                               versions.get(branch), max_len)
         else:
             out.info('No branches')
         return
