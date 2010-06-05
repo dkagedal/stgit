@@ -275,6 +275,17 @@ See `stgit-mode' for commands available."
       (expand-file-name (concat (file-name-as-directory dir)
                                 (car (split-string cdup "\n")))))))
 
+(defun git-current-branch ()
+  (let ((branch (git-symbolic-ref "HEAD")))
+    (if branch
+        (if (string-match "^refs/heads/" branch)
+            (substring branch (match-end 0))
+          branch)
+      nil)))
+
+(defun stgit-initialized-p (branch)
+  (git-config (concat "branch." branch ".stgit.stackformatversion")))
+
 (defun stgit-refresh-git-status (&optional dir)
   "If it exists, refresh the `git-status' buffer belonging to
 directory DIR or `default-directory'"
@@ -1769,6 +1780,10 @@ A negative COUNT will commit instead."
   (stgit-assert-mode)
   (if (< count 0)
       (stgit-commit (- count))
+    (when (not (stgit-initialized-p (git-current-branch)))
+      (if (y-or-n-p "Do you want to initialize StGit? ")
+          (stgit-init)
+        (error "StGit not initialized")))
     (stgit-capture-output nil (stgit-run "uncommit" "-n" count))
     (stgit-reload)))
 
