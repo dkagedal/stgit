@@ -1797,18 +1797,28 @@ working tree."
                            (error "No file on the current line")))
          (patch-name   (stgit-patch-name-at-point))
          (file-status  (stgit-file->status patched-file))
-         (rm-file      (cond ((stgit-file->copy-or-rename patched-file)
+         (rm-file      (cond ((not (memq patch-name '(:work :index)))
+                              nil)
+                             ((stgit-file->copy-or-rename patched-file)
                               (stgit-file->cr-to patched-file))
                              ((eq file-status 'add)
                               (stgit-file->file patched-file))))
-         (co-file      (cond ((eq file-status 'rename)
+         (co-file      (cond ((not (memq patch-name '(:work :index)))
+                              nil)
+                             ((eq file-status 'rename)
+                              (stgit-file->cr-from patched-file))
+                             ((not (memq file-status '(copy add)))
+                              (stgit-file->file patched-file))))
+         (rs-file      (cond ((memq patch-name '(:work :index))
+                              nil)
+                             ((eq file-status 'rename)
                               (stgit-file->cr-from patched-file))
                              ((not (memq file-status '(copy add)))
                               (stgit-file->file patched-file))))
          (next-file    (stgit-neighbour-file)))
 
-    (unless (memq patch-name '(:work :index))
-      (error "No index or working tree file on this line"))
+    ;;(unless (memq patch-name '(:work :index))
+    ;;  (error "No index or working tree file on this line"))
 
     (when (eq file-status 'ignore)
       (error "Cannot revert ignored files"))
@@ -1816,7 +1826,7 @@ working tree."
     (when (eq file-status 'unknown)
       (error "Cannot revert unknown files"))
 
-    (let ((nfiles (+ (if rm-file 1 0) (if co-file 1 0))))
+    (let ((nfiles (+ (if rm-file 1 0) (if co-file 1 0) (if rs-file 1 0))))
       (when (yes-or-no-p (format "Revert %d file%s? "
                                  nfiles
                                  (if (= nfiles 1) "" "s")))
@@ -1824,7 +1834,9 @@ working tree."
           (when rm-file
             (stgit-run-git "rm" "-f" "-q" "--" rm-file))
           (when co-file
-            (stgit-run-git "checkout" "HEAD" co-file)))
+            (stgit-run-git "checkout" "HEAD" co-file))
+          (when rs-file
+            (stgit-run-git "reset" "HEAD^" "--" rs-file)))
         (stgit-reload)
         (stgit-goto-patch patch-name next-file)))))
 
